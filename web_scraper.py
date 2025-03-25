@@ -188,9 +188,15 @@ async def scrape_class_central(search_keyword, num_courses=7):
 
             # Look for text indicating "Free Online Course"
             if "course_type" not in details:
-                free_indicators = await page.locator("span.text-2.line-tight:text('Free'), text=Free Online Course").all()
-                if free_indicators:
-                    details["course_type"] = "Free Course"
+                try:
+                    # Fix the problematic selector by using separate locators
+                    free_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Free").all()
+                    free_text_elements = await page.locator("text=Free Online Course").all()
+                    
+                    if free_text_spans or free_text_elements:
+                        details["course_type"] = "Free Course"
+                except Exception as e:
+                    print(f"Error extracting course type: {e}")
 
             # Check for "Paid Certificate Available" text
             if "course_type" not in details:
