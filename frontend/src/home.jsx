@@ -11,7 +11,7 @@ export default function Home() {
     const [showDashboard, setShowDashboard] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [showSettings, setShowSettings] = useState(true);
+    const [showSettings, setShowSettings] = useState(false);
     const [settingsTab, setSettingsTab] = useState("username");
     const [settingsMessage, setSettingsMessage] = useState({ type: "", text: "" });
     

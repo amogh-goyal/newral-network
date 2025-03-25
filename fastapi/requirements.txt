@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+playwright
+google-api-python-client
+ollama
+pycountry
+python-dotenv
+beautifulsoup4
+websockets
