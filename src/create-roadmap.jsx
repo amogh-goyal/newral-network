@@ -42,26 +42,121 @@ export default function CreateRoadmap() {
                 return;
             }
             
-            const response = await fetch('http://localhost:3001/create-roadmap', {
+            // First, request roadmap generation from FastAPI
+            const fastApiResponse = await fetch('http://localhost:8000/generate-roadmap', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    degree: formData.degree,
+                    country: formData.country,
+                    language: formData.language,
+                    include_paid: formData.isPaidCourse === "yes" ? true : false,
+                    preferred_language: formData.preferredLanguage
+                })
+            });
+            
+            if (!fastApiResponse.ok) {
+                throw new Error('Failed to start roadmap generation');
+            }
+            
+            const { job_id } = await fastApiResponse.json();
+            
+            // Wait for 10 minutes before first poll
+            await new Promise(resolve => setTimeout(resolve, 600000));
+            
+            // Start polling with retries
+            let attempts = 0;
+            let roadmapData = null;
+            
+            while (attempts < 15) { // 15 minutes total
+                const pollResponse = await fetch(`http://localhost:8000/roadmap/${job_id}`);
+                const pollData = await pollResponse.json();
+                
+                if (pollData.status === 'failed') {
+                    throw new Error(pollData.error || 'Roadmap generation failed');
+                }
+                
+                if (pollData.status === 'completed') {
+                    // Validate roadmap structure
+                    if (isValidRoadmap(pollData)) {
+                        roadmapData = pollData;
+                        break;
+                    }
+                    
+                    // If invalid structure and we haven't tried 5 times yet
+                    if (attempts < 5) {
+                        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+                        attempts++;
+                        continue;
+                    }
+                    
+                    throw new Error('Invalid roadmap structure received');
+                }
+                
+                // If still processing, wait 1 minute before next poll
+                await new Promise(resolve => setTimeout(resolve, 60000));
+                attempts++;
+            }
+            
+            if (!roadmapData) {
+                throw new Error('Roadmap generation timed out');
+            }
+            
+            // Save roadmap to user's database
+            const backendResponse = await fetch('http://localhost:3001/create-roadmap', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(roadmapData)
             });
             
-            if (response.ok) {
-                setShowSuccess(true);
-            } else {
-                const data = await response.json();
-                alert(`Error: ${data.message || 'Failed to create roadmap'}`);
+            if (!backendResponse.ok) {
+                const data = await backendResponse.json();
+                console.error('Backend error:', data);
+                throw new Error(data.message || 'Failed to save roadmap');
             }
+
+            const savedRoadmap = await backendResponse.json();
+            setShowSuccess(true);
+            
+            // Wait for 2 seconds to show success message before redirecting
+            setTimeout(() => {
+                window.location.href = `/roadmaps/${savedRoadmap._id || savedRoadmap.id}`;
+            }, 2000);
         } catch (error) {
             console.error('Error creating roadmap:', error);
-            alert('Failed to create roadmap. Please try again later.');
+            alert(error.message || 'Failed to create roadmap. Please try again later.');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+    
+    const isValidRoadmap = (roadmap) => {
+        try {
+            if (!roadmap.title || !roadmap.topic || !Array.isArray(roadmap.options)) {
+                return false;
+            }
+            
+            for (const option of roadmap.options) {
+                if (!option.option_id || !option.option_name || !Array.isArray(option.topics)) {
+                    return false;
+                }
+                
+                for (const topic of option.topics) {
+                    if (!topic.step_number || !topic.topic || !topic.thumbnail || !topic.url) {
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error validating roadmap:', error);
+            return false;
         }
     };
     
