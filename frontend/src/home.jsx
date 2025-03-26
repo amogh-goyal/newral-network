@@ -12,7 +12,7 @@ export default function Home() {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [showSettings, setShowSettings] = useState(false);
-    const [settingsTab, setSettingsTab] = useState("username");
+    const [settingsTab, setSettingsTab] = useState("username");5 
     const [settingsMessage, setSettingsMessage] = useState({ type: "", text: "" });
     
     // Form states

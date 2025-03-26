@@ -63,49 +63,71 @@ export default function CreateRoadmap() {
             
             const { job_id } = await fastApiResponse.json();
             
-            // Wait for 10 minutes before first poll
-            await new Promise(resolve => setTimeout(resolve, 600000));
+            // Show initial success message that generation has started
+            setShowSuccess(true);
             
-            // Start polling with retries
+            // Start polling with a reasonable interval
             let attempts = 0;
             let roadmapData = null;
+            const maxAttempts = 20; // 20 minutes total (20 * 1 minute)
+            const pollingInterval = 60000; // 1 minute between polls
             
-            while (attempts < 15) { // 15 minutes total
-                const pollResponse = await fetch(`http://localhost:8000/roadmap/${job_id}`);
-                const pollData = await pollResponse.json();
+            while (attempts < maxAttempts) {
+                console.log(`Polling attempt ${attempts + 1}/${maxAttempts}`);
                 
-                if (pollData.status === 'failed') {
-                    throw new Error(pollData.error || 'Roadmap generation failed');
-                }
-                
-                if (pollData.status === 'completed') {
-                    // Validate roadmap structure
-                    if (isValidRoadmap(pollData)) {
-                        roadmapData = pollData;
-                        break;
+                try {
+                    const pollResponse = await fetch(`http://localhost:8000/roadmap/${job_id}`);
+                    if (!pollResponse.ok) {
+                        console.error(`Poll request failed with status: ${pollResponse.status}`);
+                        throw new Error('Failed to check roadmap status');
                     }
                     
-                    // If invalid structure and we haven't tried 5 times yet
-                    if (attempts < 5) {
-                        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute
+                    const pollData = await pollResponse.json();
+                    console.log('Poll response:', pollData);
+                    
+                    // If the response has a status field with value "processing", continue polling
+                    if (pollData.status === "processing") {
+                        console.log('Roadmap still processing, waiting 1 minute...');
+                        await new Promise(resolve => setTimeout(resolve, pollingInterval));
                         attempts++;
                         continue;
                     }
                     
-                    throw new Error('Invalid roadmap structure received');
+                    // If the response has a status field with value "failed", throw an error
+                    if (pollData.status === "failed") {
+                        throw new Error(pollData.error || 'Roadmap generation failed');
+                    }
+                    
+                    // If we get here, either:
+                    // 1. The response has no status field (completed job returns the roadmap directly)
+                    // 2. The response has some other status we don't recognize
+                    
+                    // Check if it's a valid roadmap
+                    if (isValidRoadmap(pollData)) {
+                        console.log('Valid roadmap received, saving to database');
+                        roadmapData = pollData;
+                        break;
+                    } else {
+                        console.log('Response does not match expected roadmap schema, waiting...');
+                        await new Promise(resolve => setTimeout(resolve, pollingInterval));
+                        attempts++;
+                    }
+                } catch (pollError) {
+                    console.error('Error during polling:', pollError);
+                    await new Promise(resolve => setTimeout(resolve, pollingInterval));
+                    attempts++;
                 }
-                
-                // If still processing, wait 1 minute before next poll
-                await new Promise(resolve => setTimeout(resolve, 60000));
-                attempts++;
             }
             
             if (!roadmapData) {
-                throw new Error('Roadmap generation timed out');
+                throw new Error('Roadmap generation timed out or failed to produce valid data');
             }
             
+            // Save roadmap to user's database - use the roadmap data directly from FastAPI
+            console.log('Saving roadmap to database:', roadmapData);
+            
             // Save roadmap to user's database
-            const backendResponse = await fetch('http://localhost:3001/create-roadmap', {
+            const backendResponse = await fetch('http://localhost:3001/roadmaps', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -121,14 +143,14 @@ export default function CreateRoadmap() {
             }
 
             const savedRoadmap = await backendResponse.json();
-            setShowSuccess(true);
             
-            // Wait for 2 seconds to show success message before redirecting
+            // Wait for 1 second before redirecting
             setTimeout(() => {
-                window.location.href = `/roadmaps/${savedRoadmap._id || savedRoadmap.id}`;
-            }, 2000);
+                window.location.href = `/roadmaps`;
+            }, 1000);
         } catch (error) {
             console.error('Error creating roadmap:', error);
+            setShowSuccess(false);
             alert(error.message || 'Failed to create roadmap. Please try again later.');
         } finally {
             setIsSubmitting(false);
@@ -137,22 +159,42 @@ export default function CreateRoadmap() {
     
     const isValidRoadmap = (roadmap) => {
         try {
-            if (!roadmap.title || !roadmap.topic || !Array.isArray(roadmap.options)) {
+            console.log('Validating roadmap structure:', roadmap);
+            
+            // Check if response is an error or processing status
+            if (roadmap.status === 'processing' || roadmap.error) {
+                console.log('Roadmap is still processing or has an error');
                 return false;
             }
             
+            // Check for required top-level fields
+            if (!roadmap.title || !roadmap.topic || !Array.isArray(roadmap.options)) {
+                console.log('Missing required top-level fields');
+                return false;
+            }
+            
+            // Validate options array
             for (const option of roadmap.options) {
                 if (!option.option_id || !option.option_name || !Array.isArray(option.topics)) {
+                    console.log('Invalid option structure:', option);
                     return false;
                 }
                 
+                // Validate topics within each option
                 for (const topic of option.topics) {
-                    if (!topic.step_number || !topic.topic || !topic.thumbnail || !topic.url) {
+                    if (topic.step_number === undefined || !topic.topic) {
+                        console.log('Invalid topic structure:', topic);
                         return false;
+                    }
+                    
+                    // Allow for missing thumbnail or URL but log it
+                    if (!topic.thumbnail || !topic.url) {
+                        console.log('Topic missing thumbnail or URL:', topic);
                     }
                 }
             }
             
+            console.log('Roadmap validation successful');
             return true;
         } catch (error) {
             console.error('Error validating roadmap:', error);
@@ -178,7 +220,7 @@ export default function CreateRoadmap() {
                 </div>
                 
                 <button 
-                    onClick={() => window.location.href = '/'}
+                    onClick={() => window.location.href = '/home'}
                     className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-full transition"
                 >
                     <FaArrowLeft /> Back to Home
@@ -216,7 +258,7 @@ export default function CreateRoadmap() {
                                     Go to My Roadmaps
                                 </button>
                                 <button
-                                    onClick={() => window.location.href = '/'}
+                                    onClick={() => window.location.href = '/home'}
                                     className="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium transition"
                                 >
                                     Return to Home

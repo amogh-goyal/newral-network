@@ -194,15 +194,16 @@ async def scrape_class_central(search_keyword, num_courses=7):
                     free_text_elements = await page.locator("text=Free Online Course").all()
                     
                     if free_text_spans or free_text_elements:
-                        details["course_type"] = "Free Course"
+                        details["course_type"] = "Free Course Online"
                 except Exception as e:
                     print(f"Error extracting course type: {e}")
 
             # Check for "Paid Certificate Available" text
             if "course_type" not in details:
+                paid_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Paid").all()
                 paid_indicators = await page.locator("text=Paid Certificate").all()
-                if paid_indicators:
-                    details["course_type"] = "Free Course with Paid Certificate Option"
+                if paid_indicators or paid_text_spans:
+                    details["course_type"] = "Paid Certificate Option"
 
             # Default if all else fails
             if "course_type" not in details:
