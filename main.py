@@ -76,6 +76,7 @@ async def generate_roadmap(degree, country=None, language='en', include_paid=Tru
         "title": title,
         "description": description,
         "topic": degree,
+        "selected_option":"1",
         "options": options
     }
     return roadmap
