@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaBars, FaTimes, FaChartPie, FaUser, FaCog, FaRoad, 
   FaPlus, FaComments, FaStar, FaEye, FaGraduationCap, FaSearch,
-  FaTrash, FaExclamationTriangle, FaCheck, FaLock, FaUserEdit
+  FaTrash, FaExclamationTriangle, FaCheck, FaLock, FaUserEdit, FaSpinner,
+  FaArrowRight
 } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
 
@@ -28,36 +29,10 @@ export default function Home() {
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     
-    const [popularRoadmaps, setPopularRoadmaps] = useState([
-        {
-            id: 1,
-            title: "Web Development",
-            description: "Master HTML, CSS, JavaScript and popular frameworks.",
-            image: "/api/placeholder/400/250",
-            enrolled: 2458,
-            rating: 4.8,
-            courses: 12
-        },
-        {
-            id: 2,
-            title: "Data Science",
-            description: "Learn Python, statistics, and machine learning algorithms.",
-            image: "/api/placeholder/400/250",
-            enrolled: 1985,
-            rating: 4.7,
-            courses: 10
-        },
-        {
-            id: 3,
-            title: "Mobile Development",
-            description: "Build iOS and Android apps with React Native or Flutter.",
-            image: "/api/placeholder/400/250",
-            enrolled: 1756,
-            rating: 4.6,
-            courses: 8
-        }
-    ]);
-
+    const [popularRoadmaps, setPopularRoadmaps] = useState([]);
+    const [isLoadingPopular, setIsLoadingPopular] = useState(true);
+    const [popularError, setPopularError] = useState(null);
+    
     // Simulated user state (would connect to your backend in production)
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -102,6 +77,109 @@ export default function Home() {
         };
         
         checkAuth();
+    }, []);
+
+    useEffect(() => {
+        // Fetch popular roadmaps (samples)
+        const fetchPopularRoadmaps = async () => {
+            try {
+                setIsLoadingPopular(true);
+                const response = await fetch('http://localhost:3001/samples');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch popular roadmaps');
+                }
+                
+                const data = await response.json();
+                console.log('Sample roadmaps data:', data);
+                
+                if (data.samples && Array.isArray(data.samples) && data.samples.length > 0) {
+                    console.log('Setting popular roadmaps:', data.samples);
+                    setPopularRoadmaps(data.samples);
+                } else {
+                    console.log('No sample roadmaps found or empty array received');
+                    // Use fallback data if no samples are found
+                    setPopularRoadmaps([
+                        {
+                            _id: '1',
+                            id: '1',
+                            main_thumbnail: "/api/placeholder/400/250",
+                            enrolled: 2458,
+                            roadmap: {
+                                title: "Web Development",
+                                description: "Master HTML, CSS, JavaScript and popular frameworks.",
+                                topic: "Web Development"
+                            }
+                        },
+                        {
+                            _id: '2',
+                            id: '2',
+                            main_thumbnail: "/api/placeholder/400/250",
+                            enrolled: 1985,
+                            roadmap: {
+                                title: "Data Science",
+                                description: "Learn Python, statistics, and machine learning algorithms.",
+                                topic: "Data Science"
+                            }
+                        },
+                        {
+                            _id: '3',
+                            id: '3',
+                            main_thumbnail: "/api/placeholder/400/250",
+                            enrolled: 1562,
+                            roadmap: {
+                                title: "Mobile App Development",
+                                description: "Build native apps for iOS and Android platforms.",
+                                topic: "Mobile Development"
+                            }
+                        }
+                    ]);
+                }
+            } catch (err) {
+                console.error('Error fetching popular roadmaps:', err);
+                setPopularError(err.message);
+                // Fallback to default data if there's an error
+                setPopularRoadmaps([
+                    {
+                        _id: '1',
+                        id: '1',
+                        main_thumbnail: "/api/placeholder/400/250",
+                        enrolled: 2458,
+                        roadmap: {
+                            title: "Web Development",
+                            description: "Master HTML, CSS, JavaScript and popular frameworks.",
+                            topic: "Web Development"
+                        }
+                    },
+                    {
+                        _id: '2',
+                        id: '2',
+                        main_thumbnail: "/api/placeholder/400/250",
+                        enrolled: 1985,
+                        roadmap: {
+                            title: "Data Science",
+                            description: "Learn Python, statistics, and machine learning algorithms.",
+                            topic: "Data Science"
+                        }
+                    },
+                    {
+                        _id: '3',
+                        id: '3',
+                        main_thumbnail: "/api/placeholder/400/250",
+                        enrolled: 1562,
+                        roadmap: {
+                            title: "Mobile App Development",
+                            description: "Build native apps for iOS and Android platforms.",
+                            topic: "Mobile Development"
+                        }
+                    }
+                ]);
+            } finally {
+                setIsLoadingPopular(false);
+            }
+        };
+        
+        fetchPopularRoadmaps();
     }, []);
 
     // Animation variants
@@ -241,6 +319,7 @@ export default function Home() {
                                 </button>
                             </div>
                             
+                            {/* Dashboard content */}
                             {isLoading ? (
                                 <div className="space-y-4">
                                     {[...Array(4)].map((_, i) => (
@@ -491,7 +570,7 @@ export default function Home() {
             </AnimatePresence>
 
             {/* Main Content Section */}
-            <main className="relative flex flex-col items-center justify-center text-center pt-32 px-6">
+            <main className="relative flex flex-col items-center justify-center text-center pt-32 px-6 mt-16">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -527,63 +606,109 @@ export default function Home() {
             </main>
 
             {/* Popular Categories Section with Enhanced Cards */}
-            <section className="mt-20 px-6 text-center max-w-6xl mx-auto">
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.2 }}
-                >
-                    <motion.h2 variants={itemVariants} className="text-3xl font-bold mb-2">Popular Learning Paths</motion.h2>
-                    <motion.p variants={itemVariants} className="text-gray-400 mb-10">Explore trending roadmaps chosen by our community</motion.p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {popularRoadmaps.map((roadmap) => (
-                            <motion.div
-                                key={roadmap.id}
-                                variants={itemVariants}
-                                whileHover={{ y: -10 }}
-                                className="bg-gray-800 bg-opacity-70 backdrop-blur-sm rounded-xl overflow-hidden shadow-xl border border-gray-700 flex flex-col"
-                            >
+            <section 
+                className="px-6 text-center max-w-6xl mx-auto" 
+                style={{ 
+                    backgroundColor: 'rgba(17, 24, 39, 0.8)', 
+                    padding: '20px', 
+                    borderRadius: '10px',
+                    position: 'relative',
+                    zIndex: 20,
+                    border: '2px solid #3b82f6',
+                    marginTop: '40px'
+                }}
+            >
+                <h2 className="text-3xl font-bold mb-2">Popular Learning Paths</h2>
+                <p className="text-gray-400 mb-10">Explore trending roadmaps chosen by our community</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {isLoadingPopular ? (
+                        [...Array(3)].map((_, i) => (
+                            <div key={i} className="bg-gray-800 bg-opacity-70 backdrop-blur-sm rounded-xl overflow-hidden shadow-xl border border-gray-700 flex flex-col animate-pulse">
                                 <div className="relative h-48 overflow-hidden">
-                                    <img 
-                                        src={roadmap.image} 
-                                        alt={roadmap.title} 
-                                        className="w-full h-full object-cover transition duration-500 transform hover:scale-110"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70"></div>
+                                    <div className="absolute inset-0 bg-gray-700 rounded-full"></div>
                                 </div>
-                                
                                 <div className="p-6 flex-grow">
-                                    <h3 className="text-xl font-bold mb-2">{roadmap.title}</h3>
-                                    <p className="text-gray-300 mb-4">{roadmap.description}</p>
+                                    <h3 className="text-xl font-bold mb-2"></h3>
+                                    <p className="text-gray-300 mb-4"></p>
                                     
                                     <div className="flex justify-between items-center text-sm text-gray-400">
                                         <div className="flex items-center">
-                                            <FaEye className="mr-1" /> {roadmap.enrolled.toLocaleString()} enrolled
+                                            <FaEye className="mr-1" /> 
                                         </div>
                                         <div className="flex items-center">
-                                            <FaStar className="text-yellow-400 mr-1" /> {roadmap.rating}
+                                            <FaStar className="text-yellow-400 mr-1" /> 
                                         </div>
                                     </div>
                                 </div>
                                 
                                 <div className="px-6 py-4 bg-gray-900 flex justify-between items-center">
-                                    <span className="text-sm">{roadmap.courses} courses</span>
-                                    <motion.button
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                    <span className="text-sm"></span>
+                                    <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium">
+                                        View Roadmap
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    ) : popularError ? (
+                        <div className="text-red-500 text-center col-span-3">{popularError}</div>
+                    ) : popularRoadmaps.length === 0 ? (
+                        <div className="text-gray-400 text-center col-span-3">No popular roadmaps found</div>
+                    ) : (
+                        popularRoadmaps.map((roadmap) => (
+                            <div
+                                key={roadmap.id}
+                                className="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700 flex flex-col"
+                            >
+                                <div className="relative h-48 overflow-hidden">
+                                    <img 
+                                        src={roadmap.main_thumbnail || roadmap.image || "/api/placeholder/400/250"} 
+                                        alt={roadmap.roadmap?.title || roadmap.title || "Roadmap"} 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            console.log("Image failed to load:", roadmap.main_thumbnail || roadmap.image);
+                                            e.target.src = "/api/placeholder/400/250";
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-70"></div>
+                                </div>
+                                
+                                <div className="p-6 flex-grow">
+                                    <h3 className="text-xl font-bold mb-2">{roadmap.roadmap?.title || roadmap.title || 'Untitled Roadmap'}</h3>
+                                    <p className="text-gray-300 mb-4">
+                                        {roadmap.roadmap?.description ? 
+                                            (roadmap.roadmap.description.length > 100 
+                                                ? roadmap.roadmap.description.substring(0, 100) + '...' 
+                                                : roadmap.roadmap.description)
+                                            : 'No description available'}
+                                    </p>
+                                    
+                                    <div className="flex justify-between items-center text-sm text-gray-400">
+                                        <div className="flex items-center">
+                                            <FaEye className="mr-1" /> {(roadmap.enrolled || 0).toLocaleString()} enrolled
+                                        </div>
+                                        <div className="flex items-center">
+                                            <FaStar className="text-yellow-400 mr-1" /> {roadmap.rating || 4.5}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="px-6 py-4 bg-gray-900 flex justify-between items-center">
+                                    <span className="text-sm">{roadmap.roadmap?.options?.length || 0} options</span>
+                                    <button
                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium"
-                                        onClick={() => window.location.href = `/roadmap/${roadmap.id}`}
+                                        onClick={() => window.location.href = `/sample-roadmap/${roadmap._id || roadmap.id}`}
                                     >
                                         View Roadmap
-                                    </motion.button>
+                                    </button>
                                 </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                </motion.div>
+                            </div>
+                        ))
+                    )}
+                </div>
             </section>
+
+
 
             {/* How It Works Section with Enhanced Visuals */}
             <section className="mt-24 px-6 text-center max-w-6xl mx-auto">
@@ -594,11 +719,10 @@ export default function Home() {
                     viewport={{ once: true, amount: 0.2 }}
                 >
                     <motion.h2 variants={itemVariants} className="text-3xl font-bold mb-2">How It Works</motion.h2>
-                    <motion.p variants={itemVariants} className="text-gray-400 mb-12 max-w-2xl mx-auto">Follow these simple steps to create your personalized learning journey</motion.p>
+                    <motion.p variants={itemVariants} className="text-gray-400 mb-12">Follow these simple steps to create your personalized learning journey</motion.p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                        {/* Connecting line in desktop view */}
-                        <div className="absolute top-1/4 left-0 right-0 h-1 bg-blue-600 hidden md:block" style={{ zIndex: 0 }}></div>
+                        {/* Connecting line in desktop view removed to fix scrolling issues */}
                         
                         {[
                             { 
@@ -676,10 +800,11 @@ export default function Home() {
                     </motion.button>
                     
                     <motion.div 
-                        className="absolute -top-12 right-0 bg-gray-900 px-4 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute -top-12 right-0 bg-gray-900 px-4 py-2 rounded-lg shadow-lg text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
                         initial={{ y: 10, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 2 }}
+                        onClick={() => window.location.href = "/chatbot"}
                     >
                         Ask Cartographer <span className="ml-1">🗺️</span>
                     </motion.div>
