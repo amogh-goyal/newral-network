@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { 
   FaArrowRight, FaStar, FaEye, FaCheck, FaChevronLeft, 
-  FaChevronRight, FaExternalLinkAlt, FaSpinner 
+  FaChevronRight, FaExternalLinkAlt, FaSpinner, FaTrash 
 } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
 
@@ -31,6 +31,7 @@ export function RoadmapsList() {
   const [roadmaps, setRoadmaps] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,6 +71,50 @@ export function RoadmapsList() {
 
   const handleRoadmapClick = (roadmapId) => {
     navigate(`/roadmaps/${roadmapId}`);
+  };
+
+  const handleDeleteRoadmap = async (e, roadmapId) => {
+    e.stopPropagation(); // Prevent triggering the parent button click
+    
+    if (window.confirm("Are you sure you want to delete this roadmap? This action cannot be undone.")) {
+      try {
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`http://localhost:3001/roadmaps/${roadmapId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete roadmap');
+        }
+
+        // Remove the deleted roadmap from state
+        setRoadmaps(roadmaps.filter(roadmap => roadmap.id !== roadmapId));
+      } catch (err) {
+        console.error('Error deleting roadmap:', err);
+        alert(`Error deleting roadmap: ${err.message}`);
+      }
+    }
+  };
+
+  const toggleDescription = (e, roadmapId) => {
+    e.stopPropagation(); // Prevent triggering the parent button click
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [roadmapId]: !prev[roadmapId]
+    }));
+  };
+
+  const truncateDescription = (description, wordLimit = 20) => {
+    if (!description) return '';
+    
+    const words = description.split(' ');
+    if (words.length <= wordLimit) return description;
+    
+    return words.slice(0, wordLimit).join(' ') + '...';
   };
 
   if (isLoading) {
@@ -147,18 +192,42 @@ export function RoadmapsList() {
                 >
                   <button 
                     onClick={() => handleRoadmapClick(roadmap.id)}
-                    className="w-full text-left p-6 flex items-center justify-between"
+                    className="w-full text-left p-6"
                   >
-                    <div>
-                      <h3 className="text-2xl font-bold mb-2">{roadmap.title}</h3>
-                      <p className="text-gray-300 mb-3">{roadmap.description}</p>
-                      <div className="flex items-center text-sm text-gray-400">
-                        <span className="px-3 py-1 bg-gray-700 rounded-full mr-3">
-                          {roadmap.topic}
-                        </span>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold mb-2">{roadmap.title}</h3>
+                        <div className="text-gray-300 mb-3">
+                          {expandedDescriptions[roadmap.id] 
+                            ? roadmap.description 
+                            : truncateDescription(roadmap.description)}
+                          
+                          {roadmap.description && roadmap.description.split(' ').length > 20 && (
+                            <button 
+                              onClick={(e) => toggleDescription(e, roadmap.id)}
+                              className="ml-2 text-blue-400 hover:text-blue-300 transition text-sm font-medium"
+                            >
+                              {expandedDescriptions[roadmap.id] ? 'See less' : 'See more'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center text-sm text-gray-400">
+                          <span className="px-3 py-1 bg-gray-700 rounded-full mr-3">
+                            {roadmap.topic}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <button 
+                          onClick={(e) => handleDeleteRoadmap(e, roadmap.id)}
+                          className="text-gray-400 hover:text-red-500 transition p-2 mr-2"
+                          aria-label="Delete roadmap"
+                        >
+                          <FaTrash />
+                        </button>
+                        <FaChevronRight className="text-2xl text-blue-500" />
                       </div>
                     </div>
-                    <FaChevronRight className="text-2xl text-blue-500" />
                   </button>
                 </motion.div>
               ))}

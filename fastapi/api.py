@@ -4,17 +4,21 @@ import asyncio
 import uuid
 from main import generate_roadmap
 from fastapi.middleware.cors import CORSMiddleware
+from ourgpt import router as gpt_router
 
 app = FastAPI()
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite's default port
+    allow_origins=["http://localhost:5173", "http://localhost:3001"],  # Vite's default port and React port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include the GPT router
+app.include_router(gpt_router, tags=["chatbot"])
 
 # In-memory storage for jobs (use Redis or a database in production)
 jobs = {}

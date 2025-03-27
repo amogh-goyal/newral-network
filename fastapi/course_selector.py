@@ -1,6 +1,14 @@
+from google import generativeai as genai
+from dotenv import load_dotenv
+import os
 import json
 import re
-from ollama import chat
+
+load_dotenv()
+API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in .env file")
+genai.configure(api_key=API_KEY)
 
 def clean_response_text(response_text):
     response_text = response_text.strip()
@@ -47,7 +55,7 @@ For Class Central courses:
 - Course name relevance
 - Platform reputation
 - Overview (if available)
-- Rating and number of reviews(courses with higher number of reviews are preferred)
+- Rating and number of reviews (courses with higher number of reviews are preferred)
 
 For YouTube content:
 - Title relevance
@@ -80,15 +88,17 @@ Resources:
         if 'duration' in r:
             prompt += f"   Duration: {r['duration']}\n"
 
-    response = chat(model="gemma2:9b", messages=[{'role': 'user', 'content': prompt}], format="json")
-    response_text = clean_response_text(response['message']['content'])
-
     try:
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        chat = model.start_chat(history=[])
+        response = chat.send_message(prompt)
+        response_text = response.text
+        response_text = clean_response_text(response_text)
         response_json = json.loads(response_text)
         selected_numbers = [int(num) for num in response_json['selected_resources']]
         explanation = response_json['explanation']
         selected_resources = [resources[num - 1] for num in selected_numbers if 1 <= num <= len(resources)]
         return selected_resources, explanation
     except Exception as e:
-        print(f"Error parsing selection: {e}, response: {response_text}")
+        print(f"Error in select_top_four_resources: {e}, response: {response_text if 'response_text' in locals() else 'Not available'}")
         return resources[:4], "Failed to select resources; defaulting to first four available."
