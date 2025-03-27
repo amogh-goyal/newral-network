@@ -563,6 +563,69 @@ app.delete('/user', authenticateUser, async (req, res) => {
 
 // ROADMAP ROUTES
 
+// Get progress information for all roadmaps
+app.get('/roadmaps/progress', authenticateUser, async (req, res) => {
+    console.log('Progress endpoint called');
+    try {
+        const username = req.user.username;
+        console.log('User requesting progress:', username);
+        
+        const userRoadmaps = await UserRoadmaps.findOne({ username });
+        console.log('Found user roadmaps:', userRoadmaps ? 'Yes' : 'No');
+        
+        if (!userRoadmaps || !userRoadmaps.maps.length) {
+            console.log('No roadmaps found or empty maps array');
+            return res.json({ progress: [] });
+        }
+        
+        console.log('Number of roadmaps:', userRoadmaps.maps.length);
+        
+        // Calculate progress for each roadmap
+        const progress = userRoadmaps.maps.map(roadmap => {
+            const selectedOption = roadmap.selected_option;
+            console.log('Roadmap:', roadmap.title, 'Selected option:', selectedOption);
+            const option = roadmap.options.find(opt => opt.option_id === selectedOption);
+            
+            if (!option) {
+                console.log('Option not found for roadmap:', roadmap.title);
+                return {
+                    id: roadmap._id,
+                    title: roadmap.title,
+                    topic: roadmap.topic,
+                    selected_option: selectedOption,
+                    option_name: "Unknown",
+                    completed: 0,
+                    total: 0,
+                    percentage: 0
+                };
+            }
+            
+            const totalTopics = option.topics.length;
+            const completedTopics = option.topics.filter(topic => topic.completed).length;
+            const percentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+            
+            console.log('Progress for roadmap:', roadmap.title, 'Completed:', completedTopics, 'Total:', totalTopics);
+            
+            return {
+                id: roadmap._id,
+                title: roadmap.title,
+                topic: roadmap.topic,
+                selected_option: selectedOption,
+                option_name: option.option_name,
+                completed: completedTopics,
+                total: totalTopics,
+                percentage
+            };
+        });
+        
+        console.log('Sending progress response');
+        res.json({ progress });
+    } catch (err) {
+        console.error('Error getting progress information:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get all roadmaps for a user
 app.get('/roadmaps', authenticateUser, async (req, res) => {
     try {
@@ -841,69 +904,6 @@ app.patch('/roadmaps/:id/selected-option', authenticateUser, async (req, res) =>
         });
     } catch (err) {
         console.error('Error updating selected option:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get progress information for all roadmaps
-app.get('/roadmaps/progress', authenticateUser, async (req, res) => {
-    console.log('Progress endpoint called');
-    try {
-        const username = req.user.username;
-        console.log('User requesting progress:', username);
-        
-        const userRoadmaps = await UserRoadmaps.findOne({ username });
-        console.log('Found user roadmaps:', userRoadmaps ? 'Yes' : 'No');
-        
-        if (!userRoadmaps || !userRoadmaps.maps.length) {
-            console.log('No roadmaps found or empty maps array');
-            return res.json({ progress: [] });
-        }
-        
-        console.log('Number of roadmaps:', userRoadmaps.maps.length);
-        
-        // Calculate progress for each roadmap
-        const progress = userRoadmaps.maps.map(roadmap => {
-            const selectedOption = roadmap.selected_option;
-            console.log('Roadmap:', roadmap.title, 'Selected option:', selectedOption);
-            const option = roadmap.options.find(opt => opt.option_id === selectedOption);
-            
-            if (!option) {
-                console.log('Option not found for roadmap:', roadmap.title);
-                return {
-                    id: roadmap._id,
-                    title: roadmap.title,
-                    topic: roadmap.topic,
-                    selected_option: selectedOption,
-                    option_name: "Unknown",
-                    completed: 0,
-                    total: 0,
-                    percentage: 0
-                };
-            }
-            
-            const totalTopics = option.topics.length;
-            const completedTopics = option.topics.filter(topic => topic.completed).length;
-            const percentage = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
-            
-            console.log('Progress for roadmap:', roadmap.title, 'Completed:', completedTopics, 'Total:', totalTopics);
-            
-            return {
-                id: roadmap._id,
-                title: roadmap.title,
-                topic: roadmap.topic,
-                selected_option: selectedOption,
-                option_name: option.option_name,
-                completed: completedTopics,
-                total: totalTopics,
-                percentage
-            };
-        });
-        
-        console.log('Sending progress response');
-        res.json({ progress });
-    } catch (err) {
-        console.error('Error getting progress information:', err);
         res.status(500).json({ error: err.message });
     }
 });

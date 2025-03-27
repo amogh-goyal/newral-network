@@ -43,7 +43,7 @@ export default function Home() {
             try {
                 const token = localStorage.getItem('token');
                 if (!token) {
-                    window.location.href = '/signin';
+                    window.location.href = '/signup';
                     return;
                 }
 
@@ -64,13 +64,13 @@ export default function Home() {
                 } else {
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
-                    window.location.href = '/signin';
+                    window.location.href = '/signup';
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
                 localStorage.removeItem('token');
                 localStorage.removeItem('username');
-                window.location.href = '/signin';
+                window.location.href = '/signup';
             } finally {
                 setIsLoading(false);
             }
@@ -285,7 +285,7 @@ export default function Home() {
                         ) : (
                             <li>
                                 <button 
-                                    onClick={() => window.location.href = "/signin"}
+                                    onClick={() => window.location.href = "/signup"}
                                     className="hover:text-blue-400 transition"
                                 >
                                     Sign In

@@ -62,22 +62,8 @@ export function Progress() {
           console.error('Test progress endpoint failed:', testProgressErr);
         }
 
-        // Try the debug progress endpoint
-        try {
-          console.log('Trying debug progress endpoint...');
-          const debugProgressResponse = await fetch('http://localhost:3001/roadmaps/progress-debug');
-          const debugProgressData = await debugProgressResponse.json();
-          console.log('Debug progress endpoint response:', debugProgressData);
-          
-          // If we get data from the debug endpoint, use it instead
-          if (debugProgressData && debugProgressData.progress) {
-            setProgress(debugProgressData.progress);
-            setIsLoading(false);
-            return; // Skip the authenticated endpoint call
-          }
-        } catch (debugProgressErr) {
-          console.error('Debug progress endpoint failed:', debugProgressErr);
-        }
+        // Note: We're no longer using the debug endpoint by default
+        // We'll only use it as a fallback if the authenticated endpoint fails
 
         const response = await fetch('http://localhost:3001/roadmaps/progress', {
           method: 'GET',
