@@ -107,6 +107,50 @@ const RoadmapSchema = new mongoose.Schema({
     }
 });
 
+// Sample Roadmap Schema - Simplified structure for sample roadmaps
+const SampleRoadmapSchema = new mongoose.Schema({
+    id: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    enrolled: {
+        type: Number,
+        default: 0
+    },
+    main_thumbnail: {
+        type: String,
+        required: true
+    },
+    roadmap: {
+        title: {
+            type: String,
+            required: true
+        },
+        description: {
+            type: String,
+            default: ''
+        },
+        topic: {
+            type: String,
+            required: true
+        },
+        options: [RoadmapOptionSchema],
+        selected_option: {
+            type: String,
+            default: "1"
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        updatedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }
+});
+
 // User Roadmaps Schema
 const UserRoadmaps = mongoose.model('UserRoadmaps', new mongoose.Schema({
     username: {
@@ -116,6 +160,9 @@ const UserRoadmaps = mongoose.model('UserRoadmaps', new mongoose.Schema({
     },
     maps: [RoadmapSchema]
 }));
+
+// Sample Roadmap Model
+const SampleRoadmap = mongoose.model('SampleRoadmap', SampleRoadmapSchema);
 
 // Zod Schemas for Input Validation
 const signupSchema = zod.object({
@@ -947,3 +994,103 @@ const port = 3001
 app.listen(port, () => {
     console.log(`app listening on port : ${port}`)
 })
+
+// Sample Roadmap API Endpoints
+
+// GET /samples - Retrieve all sample roadmaps
+app.get('/samples', async (req, res) => {
+  try {
+    const samples = await SampleRoadmap.find({}).sort({ enrolled: -1 }).limit(3);
+    res.json({ samples });
+  } catch (err) {
+    console.error('Error fetching sample roadmaps:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /samples/:id - Retrieve a specific sample roadmap by ID
+app.get('/samples/:id', async (req, res) => {
+  try {
+    const sample = await SampleRoadmap.findById(req.params.id);
+    if (!sample) {
+      return res.status(404).json({ error: 'Sample roadmap not found' });
+    }
+    res.json({ roadmap: sample });
+  } catch (err) {
+    console.error('Error fetching sample roadmap:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /samples - Create a new sample roadmap
+app.post('/samples', authenticateUser, async (req, res) => {
+  try {
+    const { id, main_thumbnail, roadmap } = req.body;
+    
+    // Validate input
+    if (!id || !main_thumbnail || !roadmap || !roadmap.title || !roadmap.topic) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const newSample = new SampleRoadmap({
+      id,
+      main_thumbnail,
+      roadmap
+    });
+    
+    await newSample.save();
+    res.status(201).json({
+      message: 'Sample roadmap created successfully',
+      sampleId: newSample._id
+    });
+  } catch (err) {
+    console.error('Error creating sample roadmap:', err);
+    res.status(500).json({ error: 'Failed to create sample roadmap' });
+  }
+});
+
+// POST /samples/:id/add - Add a sample roadmap to the user's collection
+app.post('/samples/:id/add', authenticateUser, async (req, res) => {
+  try {
+    const sample = await SampleRoadmap.findById(req.params.id);
+    if (!sample) {
+      return res.status(404).json({ error: 'Sample roadmap not found' });
+    }
+
+    const username = req.user.username;
+    let userRoadmaps = await UserRoadmaps.findOne({ username });
+
+    if (!userRoadmaps) {
+      userRoadmaps = new UserRoadmaps({
+        username,
+        maps: [],
+      });
+    }
+
+    // Create a new roadmap based on the sample
+    const newRoadmap = {
+      title: sample.roadmap.title,
+      description: sample.roadmap.description,
+      topic: sample.roadmap.topic,
+      options: sample.roadmap.options,
+      selected_option: sample.roadmap.selected_option || "1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    userRoadmaps.maps.push(newRoadmap);
+    await userRoadmaps.save();
+
+    // Update the enrolled count for the sample
+    sample.enrolled += 1;
+    await sample.save();
+
+    res.status(201).json({
+      message: 'Roadmap added to your collection',
+      roadmapId: userRoadmaps.maps[userRoadmaps.maps.length - 1]._id
+    });
+  } catch (err) {
+    console.error('Error adding sample roadmap to user collection:', err);
+    res.status(500).json({ error: 'Failed to add roadmap' });
+  }
+});
