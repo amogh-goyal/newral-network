@@ -24,7 +24,8 @@ app.use((req, res, next) => {
 
 //endregion
 
-mongoose.connect('mongodb+srv://amoghistheonewiththemaggi:amogh1212@practisecluster.va4v2.mongodb.net/users')
+process.env.MONGODB_URL = 'mongodb+srv://amoghistheonewiththemaggi:amogh1212@practisecluster.va4v2.mongodb.net/users'
+mongoose.connect(process.env.MONGODB_URL,{newUrlParser: true, useUnifiedTopology: true})
 
 // Mongoose User Schema
 const User = mongoose.model('User', new mongoose.Schema({
@@ -990,7 +991,7 @@ app.post('/create-roadmap', authenticateUser, async (req, res) => {
     }
 });
 
-const port = 3001
+const port = process.env.PORT ||3001 
 app.listen(port, () => {
     console.log(`app listening on port : ${port}`)
 })
