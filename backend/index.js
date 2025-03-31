@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 //endregion
 
 process.env.MONGODB_URL = 'mongodb+srv://amoghistheonewiththemaggi:amogh1212@practisecluster.va4v2.mongodb.net/users'
-mongoose.connect(process.env.MONGODB_URL,{newUrlParser: true, useUnifiedTopology: true})
+mongoose.connect(process.env.MONGODB_URL)
 
 // Mongoose User Schema
 const User = mongoose.model('User', new mongoose.Schema({
