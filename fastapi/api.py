@@ -14,9 +14,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",  # Vite's default port
         "http://localhost:3001",  # React port
-        "https://connecthub-dot-gdg-newral-network.uc.r.appspot.com",  # Replace with your GCP URL
-        "https://YOUR-DOMAIN.com" ,
-        "*" # Replace with your actual domain
+        "https://mern-app-backend-477609894648.asia-south2.run.app",  # Backend URL
+        "https://mern-app-fastapi-477609894648.us-central1.run.app",  # FastAPI URL
+        "https://newral-network.vercel.app/"  # Replace with your Vercel domain once deployed
     ],
     allow_credentials=True,
     allow_methods=["*"],
