@@ -234,7 +234,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
 
     async with async_playwright() as p:
         # Launch browser with a user agent
-        browser = await p.chromium.launch(headless=True,chromium_sandbox=False)
+        browser = await p.chromium.launch(headless=True,args=["--no-sandbox"])
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
