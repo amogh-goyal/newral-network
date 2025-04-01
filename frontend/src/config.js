@@ -1,5 +1,5 @@
 // Configuration for API endpoints
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = process.env.NODE_ENV === 'production';
 
 // For local development
 const localBackendUrl = 'http://localhost:3001';

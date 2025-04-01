@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { MongoClient } = require('mongodb');
 
 // MongoDB connection string
-const mongoURI = 'mongodb+srv://amoghistheonewiththemaggi:amogh1212@practisecluster.va4v2.mongodb.net/users';
+const mongoURI = process.env.MONGODB_URL;
 
 // Connect to MongoDB
 mongoose.connect(mongoURI)

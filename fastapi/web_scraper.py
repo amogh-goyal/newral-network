@@ -3,6 +3,11 @@ from bs4 import BeautifulSoup
 import re
 import asyncio
 import random
+import logging
+
+# Set up logging for better debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 async def scrape_class_central(search_keyword, num_courses=7):
     """
@@ -29,8 +34,8 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 return
             except Exception as e:
                 if attempt < retries:
-                    print(f"Attempt {attempt} failed for {url}: {e}. Retrying...")
-                    await asyncio.sleep(5)  # Wait before retrying
+                    logger.warning(f"Attempt {attempt} failed for {url}: {e}. Retrying...")
+                    await asyncio.sleep(5)
                 else:
                     raise Exception(f"Failed to load {url} after {retries} attempts: {e}")
 
@@ -40,30 +45,21 @@ async def scrape_class_central(search_keyword, num_courses=7):
 
     async def extract_course_title(page):
         try:
-            # First try to get the title with a more specific selector
-            title_elem = page.locator("h1.head-2")
-            if await title_elem.count() > 0 and await title_elem.is_visible():
-                return (await title_elem.text_content()).strip()
-
-            # If that doesn't work, try the second most common pattern
-            title_elem = page.locator("h1.text-1.weight-bold")
-            if await title_elem.count() > 0 and await title_elem.is_visible():
-                return (await title_elem.text_content()).strip()
-
-            # Try the head-2 with max-650 class
-            title_elem = page.locator("h1.head-2.max-650")
-            if await title_elem.count() > 0 and await title_elem.is_visible():
-                return (await title_elem.text_content()).strip()
-
-            # If all else fails, get all h1 elements and choose the first visible one
-            title_elems = await page.locator("h1").all()
-            for elem in title_elems:
-                if await elem.is_visible():
-                    return (await elem.text_content()).strip()
-
+            # Use a list of selectors for cleaner iteration
+            title_selectors = [
+                "h1.head-2",
+                "h1.text-1.weight-bold",
+                "h1.head-2.max-650",
+                "h1"
+            ]
+            for selector in title_selectors:
+                title_elems = await page.locator(selector).all()
+                for elem in title_elems:
+                    if await elem.is_visible():
+                        return (await elem.text_content()).strip()
             return "Unknown Title"
         except Exception as e:
-            print(f"Error extracting title: {e}")
+            logger.error(f"Error extracting title: {e}")
             return "Unknown Title"
 
     async def extract_thumbnail_from_search_result(course):
@@ -82,16 +78,14 @@ async def scrape_class_central(search_keyword, num_courses=7):
             return (await platform_anchor.text_content()).strip()
         except:
             try:
-                # Try to find platform by image (provider logo)
                 platform_img = course.locator("img.vertical-align-middle.margin-right-xsmall")
                 return await platform_img.get_attribute("alt") or "Unknown"
             except:
                 try:
-                    # Look for text in spans that might contain platform name
                     platform_spans = await course.locator("span.text-2.line-tight, span.text-1.block.scale-down-1").all()
                     for span in platform_spans:
                         text = (await span.text_content()).strip()
-                        if text and not text.isdigit():  # Avoid returning just numbers
+                        if text and not text.isdigit():
                             return text
                     return "Unknown"
                 except:
@@ -99,9 +93,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
 
     async def extract_platform_rating(page):
         try:
-            # Using XPath selector which works better for finding rating elements
-            rating_elements = await page.locator(
-                "//p[contains(@class, 'text-') and contains(@class, 'medium-down-margin')]").all()
+            rating_elements = await page.locator("//p[contains(@class, 'text-') and contains(@class, 'medium-down-margin')]").all()
             for element in rating_elements:
                 text = (await element.text_content()).strip()
                 if "rating at " in text:
@@ -118,51 +110,40 @@ async def scrape_class_central(search_keyword, num_courses=7):
 
     async def extract_course_overview(page):
         try:
-            # Wait for the overview section to load
             await page.wait_for_load_state("networkidle")
-
-            # Try multiple potential selectors for overview
             selectors = [
                 "div.wysiwyg.text-1.line-wide",
                 "div.wysiwyg.text-1-line-wide",
                 "div.wysiwyg",
                 "div.course-description"
             ]
-
             for selector in selectors:
                 try:
                     overview_elem = page.locator(selector)
                     if await overview_elem.count() > 0:
-                        # Use first() to get only the first matching element
-                        overview_text = (await overview_elem.first.text_content()).strip()
+                        overview_text = (await overview_elem.text_content()).strip()
                         if overview_text:
                             return overview_text
                 except Exception as inner_e:
-                    print(f"Error with selector {selector}: {inner_e}")
+                    logger.error(f"Error with selector {selector}: {inner_e}")
                     continue
 
-            # If we couldn't find a matching selector, look for text under the Overview heading
             try:
-                overview_heading = page.locator("h2:text('Overview'), h3:text('Overview')").first
+                overview_heading = page.locator("h2:text('Overview'), h3:text('Overview')")
                 if await overview_heading.count() > 0:
-                    # Get the next sibling elements that might contain the overview
                     next_elem = overview_heading.locator("xpath=./following-sibling::*[1]")
                     if await next_elem.count() > 0:
                         return (await next_elem.text_content()).strip()
-            except Exception as heading_e:
-                print(f"Error finding Overview heading: {heading_e}")
-
+            except:
+                pass
             return "Not available"
         except Exception as e:
-            print(f"Error extracting overview: {e}")
+            logger.error(f"Error extracting overview: {e}")
             return "Not available"
 
     async def extract_course_details(page):
         details = {}
-
-        # Extract course type (free or paid)
         try:
-            # Check multiple indicators of course type
             course_detail_items = await page.locator("li.course-details-item").all()
             for item in course_detail_items:
                 item_text = (await item.text_content()).strip().lower()
@@ -172,8 +153,6 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 elif any(term in item_text for term in ["paid", "certificate", "nanodegree"]):
                     details["course_type"] = "Paid Course"
                     break
-
-            # Check for dollar sign icon or elements with cost information
             if "course_type" not in details:
                 dollar_icon_items = await page.locator("li:has(span.icon-cost-dollar), span.icon-cost-dollar").all()
                 if dollar_icon_items:
@@ -185,41 +164,30 @@ async def scrape_class_central(search_keyword, num_courses=7):
                         else:
                             details["course_type"] = "Paid Course"
                             break
-
-            # Look for text indicating "Free Online Course"
             if "course_type" not in details:
                 try:
-                    # Fix the problematic selector by using separate locators
                     free_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Free").all()
                     free_text_elements = await page.locator("text=Free Online Course").all()
-                    
                     if free_text_spans or free_text_elements:
                         details["course_type"] = "Free Course Online"
-                except Exception as e:
-                    print(f"Error extracting course type: {e}")
-
-            # Check for "Paid Certificate Available" text
+                except:
+                    pass
             if "course_type" not in details:
                 paid_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Paid").all()
                 paid_indicators = await page.locator("text=Paid Certificate").all()
                 if paid_indicators or paid_text_spans:
                     details["course_type"] = "Paid Certificate Option"
-
-            # Default if all else fails
             if "course_type" not in details:
                 details["course_type"] = "Not available"
-
         except Exception as e:
-            print(f"Error extracting course type: {e}")
+            logger.error(f"Error extracting course type: {e}")
             details["course_type"] = "Not available"
 
         try:
-            # Extract and clean duration
             duration_elems = await page.locator("li.course-details-item").all()
             for elem in duration_elems:
                 text = (await elem.text_content()).strip()
                 if any(unit in text.lower() for unit in ["day", "hour", "minute", "week", "month"]):
-                    # Clean unwanted text like "Duration & workload"
                     clean_text = re.sub(r"Duration & workload\s*", "", text, flags=re.IGNORECASE).strip()
                     clean_text = re.sub(r"\s+", " ", clean_text)
                     details["duration"] = clean_text
@@ -227,33 +195,25 @@ async def scrape_class_central(search_keyword, num_courses=7):
             else:
                 details["duration"] = "Not available"
         except Exception as e:
-            print(f"Error extracting duration: {e}")
+            logger.error(f"Error extracting duration: {e}")
             details["duration"] = "Not available"
 
         return details
 
     async with async_playwright() as p:
-        # Launch browser with a user agent
-        browser = await p.chromium.launch(headless=True,args=["--no-sandbox"])
-        context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
-            ignore_https_errors=True
-        )
-        page = await context.new_page()
-
-        # Navigate to Class Central
-        base_url = "https://www.classcentral.com"
         try:
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+                ignore_https_errors=True
+            )
+            page = await context.new_page()
+
+            base_url = "https://www.classcentral.com"
             await goto_with_retry(page, base_url)
             await random_sleep(2, 4)
-        except Exception as e:
-            print(f"Failed to load Class Central: {e}")
-            await browser.close()
-            return courses_list
 
-        # Perform search
-        try:
             search_input = page.get_by_placeholder("Search 250,000 courses…")
             await search_input.click()
             await random_sleep(1, 2)
@@ -261,13 +221,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
             await random_sleep(1, 2)
             await search_input.press("Enter")
             await random_sleep(2, 4)
-        except Exception as e:
-            print(f"Error during search: {e}")
-            await browser.close()
-            return courses_list
 
-        # Wait for course list and scrape
-        try:
             await page.wait_for_selector(".course-list", timeout=14000)
             course_elements = await page.locator(".course-list-course").all()
             course_elements = course_elements[:num_courses]
@@ -278,17 +232,14 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 platform_name = await extract_platform_from_search_result(course)
                 link_elem = course.locator("a.course-name")
                 href = await link_elem.get_attribute("href") or ""
-
                 if not href.startswith("http"):
                     href = f"{base_url}{href}"
 
-                # Open course page with retry
                 course_page = await context.new_page()
                 try:
                     await goto_with_retry(course_page, href)
                     await random_sleep(2, 3)
 
-                    # Extract course title using the new function
                     course_title = await extract_course_title(course_page)
 
                     if platform_name == "YouTube":
@@ -320,7 +271,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
                         }
                     courses_list.append(course_details)
                 except Exception as e:
-                    print(f"Error scraping course page {href}: {e}")
+                    logger.error(f"Error scraping course page {href}: {e}")
                     course_details = {
                         "course_name": "Error",
                         "platform": platform_name,
@@ -335,9 +286,8 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 finally:
                     await course_page.close()
                     await random_sleep(1, 2)
-
         except Exception as e:
-            print(f"Error scraping courses for {search_keyword}: {e}")
+            logger.error(f"Error scraping courses for {search_keyword}: {e}")
         finally:
             await browser.close()
 

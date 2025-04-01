@@ -6,16 +6,17 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser');
 
-const jwt_pass = "amogh1234"
+const jwt_pass = process.env.JWT_PASS;
 
 const app = express()
 app.use(express.json())
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://connecthub-dot-YOUR-PROJECT-ID.uc.r.appspot.com', 'https://YOUR-DOMAIN.com'] // Replace with your actual domain
-        : 'http://localhost:5173',
-    credentials: true // Allow credentials
+        ? ['https://connecthub-dot-gdg-newral-network.uc.r.appspot.com', 'https://YOUR-DOMAIN.com']
+        : true,  // Allow all in development
+    credentials: true
 }))
+
 app.use(cookieParser());
 
 // Log all incoming requests
@@ -26,7 +27,6 @@ app.use((req, res, next) => {
 
 //endregion
 
-process.env.MONGODB_URL = 'mongodb+srv://amoghistheonewiththemaggi:amogh1212@practisecluster.va4v2.mongodb.net/users'
 mongoose.connect(process.env.MONGODB_URL)
 
 // Mongoose User Schema
