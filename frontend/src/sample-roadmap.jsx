@@ -6,6 +6,7 @@ import {
   FaStar, FaEye, FaExternalLinkAlt, FaArrowRight 
 } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
+import { BACKEND_URL } from './config.js';
 
 export default function SampleRoadmapDetail() {
   const { id } = useParams();
@@ -24,7 +25,7 @@ export default function SampleRoadmapDetail() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`http://localhost:3001/samples/${id}`);
+        const response = await fetch(`${BACKEND_URL}/samples/${id}`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch sample roadmap');
@@ -76,7 +77,7 @@ export default function SampleRoadmapDetail() {
 
       console.log(`Attempting to add roadmap ${id} to user collection...`);
       
-      const response = await fetch(`http://localhost:3001/samples/${id}/add`, {
+      const response = await fetch(`${BACKEND_URL}/samples/${id}/add`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -6,6 +6,7 @@ import {
   FaChevronRight, FaExternalLinkAlt, FaSpinner, FaTrash 
 } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
+import { BACKEND_URL } from './config.js';
 
 // Animation variants
 const containerVariants = {
@@ -45,7 +46,7 @@ export function RoadmapsList() {
           return;
         }
 
-        const response = await fetch('http://localhost:3001/roadmaps', {
+        const response = await fetch(`${BACKEND_URL}/roadmaps`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -80,7 +81,7 @@ export function RoadmapsList() {
       try {
         const token = localStorage.getItem('token');
         
-        const response = await fetch(`http://localhost:3001/roadmaps/${roadmapId}`, {
+        const response = await fetch(`${BACKEND_URL}/roadmaps/${roadmapId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -258,7 +259,7 @@ export function RoadmapDetail() {
           return;
         }
 
-        const response = await fetch(`http://localhost:3001/roadmaps/${id}`, {
+        const response = await fetch(`${BACKEND_URL}/roadmaps/${id}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -302,7 +303,7 @@ export function RoadmapDetail() {
       }
 
       // Update the selected option in the database
-      const response = await fetch(`http://localhost:3001/roadmaps/${id}/selected-option`, {
+      const response = await fetch(`${BACKEND_URL}/roadmaps/${id}/selected-option`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -342,7 +343,7 @@ export function RoadmapDetail() {
       const topic = option.topics[topicIndex];
       const newCompletedStatus = !topic.completed;
 
-      const response = await fetch(`http://localhost:3001/roadmaps/${id}/option/${selectedOption}/topic/${topic.step_number}/complete`, {
+      const response = await fetch(`${BACKEND_URL}/roadmaps/${id}/option/${selectedOption}/topic/${topic.step_number}/complete`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

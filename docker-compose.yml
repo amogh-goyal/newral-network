@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"  # Maps port 3001 on the host to port 3001 in the container
+    environment:
+      - NODE_ENV=production
+      - BACKEND_PORT=3001
+    volumes:
+      - ./backend:/app/backend  # Mounts the local backend/ directory to /app/backend in the container
+    networks:
+      - app-network
+
+  fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"  # Maps port 8000 on the host to port 8000 in the container
+    environment:
+      - FASTAPI_PORT=8000
+    volumes:
+      - ./fastapi:/app/fastapi  # Mounts the local fastapi/ directory to /app/fastapi in the container
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

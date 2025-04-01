@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { BACKEND_URL } from './config.js';
 
 function BackgroundGrid() {
     const gridSize = 15;
@@ -81,7 +82,7 @@ function pickOtherSetup(currentSetup) {
 
 async function signInBackend(email, password, setResponse) {
     try {
-        const response = await fetch("http://localhost:3001/signin", {
+        const response = await fetch(`${BACKEND_URL}/signin`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
@@ -108,7 +109,7 @@ async function signInBackend(email, password, setResponse) {
 
 async function signUpBackend(user, email, password, setResponse) {
     try {
-        const response = await fetch("http://localhost:3001/signup", {
+        const response = await fetch(`${BACKEND_URL}/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username: user, email, password }),

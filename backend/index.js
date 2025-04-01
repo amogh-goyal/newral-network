@@ -11,7 +11,9 @@ const jwt_pass = "amogh1234"
 const app = express()
 app.use(express.json())
 app.use(cors({
-    origin: 'http://localhost:5173', // Vite's default port
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://connecthub-dot-YOUR-PROJECT-ID.uc.r.appspot.com', 'https://YOUR-DOMAIN.com'] // Replace with your actual domain
+        : 'http://localhost:5173',
     credentials: true // Allow credentials
 }))
 app.use(cookieParser());

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaPaperPlane, FaTrash, FaHome } from "react-icons/fa";
 import "./ChatbotUI.css"; 
+import { FASTAPI_URL } from './config.js';
 
 // Code Block Component with Improved Formatting
 const CodeBlock = ({ code, language }) => {
@@ -209,7 +210,7 @@ const ChatbotUI = () => {
     
     try {
       // Make API call to backend
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch(`${FASTAPI_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -263,7 +264,7 @@ const ChatbotUI = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8000/clear", {
+      const response = await fetch(`${FASTAPI_URL}/clear`, {
         method: "POST",
       });
       

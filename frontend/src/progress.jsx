@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaSpinner, FaCheckCircle } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
+import { BACKEND_URL } from './config.js';
 
 // Animation variants
 const containerVariants = {
@@ -45,7 +46,7 @@ export function Progress() {
         
         // First test the server connection
         try {
-          const testResponse = await fetch('http://localhost:3001/test');
+          const testResponse = await fetch(`${BACKEND_URL}/test`);
           const testData = await testResponse.json();
           console.log('Test endpoint response:', testData);
         } catch (testErr) {
@@ -55,7 +56,7 @@ export function Progress() {
         // Try the test progress endpoint
         try {
           console.log('Trying test progress endpoint...');
-          const testProgressResponse = await fetch('http://localhost:3001/roadmaps/progress-test');
+          const testProgressResponse = await fetch(`${BACKEND_URL}/roadmaps/progress-test`);
           const testProgressData = await testProgressResponse.json();
           console.log('Test progress endpoint response:', testProgressData);
         } catch (testProgressErr) {
@@ -65,7 +66,7 @@ export function Progress() {
         // Note: We're no longer using the debug endpoint by default
         // We'll only use it as a fallback if the authenticated endpoint fails
 
-        const response = await fetch('http://localhost:3001/roadmaps/progress', {
+        const response = await fetch(`${BACKEND_URL}/roadmaps/progress`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

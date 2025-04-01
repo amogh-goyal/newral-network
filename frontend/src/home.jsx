@@ -7,6 +7,7 @@ import {
   FaArrowRight
 } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
+import { BACKEND_URL, FASTAPI_URL } from './config.js';
 
 export default function Home() {
   const [showDashboard, setShowDashboard] = useState(false);
@@ -45,7 +46,7 @@ export default function Home() {
           window.location.href = '/signup';
           return;
         }
-        const response = await fetch('http://localhost:3001/signin', {
+        const response = await fetch(`${BACKEND_URL}/signin`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -74,7 +75,7 @@ export default function Home() {
     const fetchPopularRoadmaps = async () => {
       try {
         setIsLoadingPopular(true);
-        const response = await fetch('http://localhost:3001/samples');
+        const response = await fetch(`${BACKEND_URL}/samples`);
         if (!response.ok) throw new Error('Failed to fetch popular roadmaps');
         const data = await response.json();
         setPopularRoadmaps(data.samples && data.samples.length > 0 ? data.samples : [
@@ -613,7 +614,7 @@ export default function Home() {
     setSettingsMessage({ type: "", text: "" });
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/user/username', {
+      const response = await fetch(`${BACKEND_URL}/user/username`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ newUsername })
@@ -646,7 +647,7 @@ export default function Home() {
     setSettingsMessage({ type: "", text: "" });
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/user/password', {
+      const response = await fetch(`${BACKEND_URL}/user/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ currentPassword, newPassword })
@@ -678,7 +679,7 @@ export default function Home() {
     setSettingsMessage({ type: "", text: "" });
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/user', {
+      const response = await fetch(`${BACKEND_URL}/user`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ password: deleteConfirmPassword })

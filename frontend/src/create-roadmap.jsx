@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { FaArrowLeft, FaSpinner } from "react-icons/fa";
 import { BiMap } from "react-icons/bi";
+import { BACKEND_URL, FASTAPI_URL } from './config.js';
 
 export default function CreateRoadmap() {
     const [formData, setFormData] = useState({
@@ -43,7 +44,7 @@ export default function CreateRoadmap() {
             }
             
             // First, request roadmap generation from FastAPI
-            const fastApiResponse = await fetch('http://localhost:8000/generate-roadmap', {
+            const fastApiResponse = await fetch(`${FASTAPI_URL}/generate-roadmap`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -76,7 +77,7 @@ export default function CreateRoadmap() {
                 console.log(`Polling attempt ${attempts + 1}/${maxAttempts}`);
                 
                 try {
-                    const pollResponse = await fetch(`http://localhost:8000/roadmap/${job_id}`);
+                    const pollResponse = await fetch(`${FASTAPI_URL}/roadmap/${job_id}`);
                     if (!pollResponse.ok) {
                         console.error(`Poll request failed with status: ${pollResponse.status}`);
                         throw new Error('Failed to check roadmap status');
@@ -127,7 +128,7 @@ export default function CreateRoadmap() {
             console.log('Saving roadmap to database:', roadmapData);
             
             // Save roadmap to user's database
-            const backendResponse = await fetch('http://localhost:3001/roadmaps', {
+            const backendResponse = await fetch(`${BACKEND_URL}/roadmaps`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
