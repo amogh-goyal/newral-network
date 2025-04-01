@@ -10,12 +10,23 @@ const jwt_pass = process.env.JWT_PASS;
 
 const app = express()
 app.use(express.json())
+const allowedOrigins = [
+    "https://mern-app-backend-477609894648.asia-south2.run.app",
+    "https://mern-app-fastapi-477609894648.us-central1.run.app",
+    "https://newral-network.vercel.app"
+];
+
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-        ? ['https://mern-app-backend-477609894648.asia-south2.run.app', 'https://mern-app-fastapi-477609894648.us-central1.run.app', 'https://newral-network.vercel.app/'] 
-        : 'http://localhost:5173',
-    credentials: true // Allow credentials
-}))
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true // Allow cookies and authentication headers
+}));
+
 
 app.use(cookieParser());
 
