@@ -12,9 +12,9 @@ const app = express()
 app.use(express.json())
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://connecthub-dot-gdg-newral-network.uc.r.appspot.com', 'https://YOUR-DOMAIN.com']
-        : true,  // Allow all in development
-    credentials: true
+        ? ['https://mern-app-backend-477609894648.asia-south2.run.app', 'https://mern-app-fastapi-477609894648.us-central1.run.app', 'https://newral-network.vercel.app/'] 
+        : 'http://localhost:5173',
+    credentials: true // Allow credentials
 }))
 
 app.use(cookieParser());
