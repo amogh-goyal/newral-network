@@ -22,15 +22,18 @@ RUN apt-get update && apt-get install -y \
     libappindicator3-1 \
     xdg-utils \
     --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*  # Clean up
+
+# Upgrade pip, setuptools, and wheel before installing dependencies
+RUN pip install --upgrade pip setuptools wheel
 
 # Install Playwright and browser dependencies
 RUN pip install --no-cache-dir playwright
 RUN playwright install --with-deps
 
-# Copy and install dependencies
+# Copy and install Python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt  # Install packages
 
 # Copy application code
 COPY . .

@@ -3,11 +3,6 @@ from bs4 import BeautifulSoup
 import re
 import asyncio
 import random
-import logging
-
-# Set up logging for better debugging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 async def scrape_class_central(search_keyword, num_courses=7):
     """
@@ -34,7 +29,6 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 return
             except Exception as e:
                 if attempt < retries:
-                    logger.warning(f"Attempt {attempt} failed for {url}: {e}. Retrying...")
                     await asyncio.sleep(5)
                 else:
                     raise Exception(f"Failed to load {url} after {retries} attempts: {e}")
@@ -58,8 +52,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
                     if await elem.is_visible():
                         return (await elem.text_content()).strip()
             return "Unknown Title"
-        except Exception as e:
-            logger.error(f"Error extracting title: {e}")
+        except Exception:
             return "Unknown Title"
 
     async def extract_thumbnail_from_search_result(course):
@@ -124,8 +117,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
                         overview_text = (await overview_elem.text_content()).strip()
                         if overview_text:
                             return overview_text
-                except Exception as inner_e:
-                    logger.error(f"Error with selector {selector}: {inner_e}")
+                except Exception:
                     continue
 
             try:
@@ -137,8 +129,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
             except:
                 pass
             return "Not available"
-        except Exception as e:
-            logger.error(f"Error extracting overview: {e}")
+        except Exception:
             return "Not available"
 
     async def extract_course_details(page):
@@ -179,8 +170,7 @@ async def scrape_class_central(search_keyword, num_courses=7):
                     details["course_type"] = "Paid Certificate Option"
             if "course_type" not in details:
                 details["course_type"] = "Not available"
-        except Exception as e:
-            logger.error(f"Error extracting course type: {e}")
+        except Exception:
             details["course_type"] = "Not available"
 
         try:
@@ -194,15 +184,23 @@ async def scrape_class_central(search_keyword, num_courses=7):
                     break
             else:
                 details["duration"] = "Not available"
-        except Exception as e:
-            logger.error(f"Error extracting duration: {e}")
+        except Exception:
             details["duration"] = "Not available"
 
         return details
 
     async with async_playwright() as p:
         try:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
+            browser = await p.chromium.launch(
+                headless=True, 
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--single-process"
+                ],
+                timeout=180000
+            )
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                 extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
@@ -271,7 +269,6 @@ async def scrape_class_central(search_keyword, num_courses=7):
                         }
                     courses_list.append(course_details)
                 except Exception as e:
-                    logger.error(f"Error scraping course page {href}: {e}")
                     course_details = {
                         "course_name": "Error",
                         "platform": platform_name,
@@ -286,8 +283,8 @@ async def scrape_class_central(search_keyword, num_courses=7):
                 finally:
                     await course_page.close()
                     await random_sleep(1, 2)
-        except Exception as e:
-            logger.error(f"Error scraping courses for {search_keyword}: {e}")
+        except Exception:
+            pass
         finally:
             await browser.close()
 
