@@ -16,7 +16,7 @@ app.add_middleware(
         "http://localhost:3001",  # React port
         "https://mern-app-backend-477609894648.asia-south2.run.app",  # Backend URL
         "https://mern-app-fastapi-477609894648.us-central1.run.app",  # FastAPI URL
-        "https://newral-network.vercel.app/"  # Replace with your Vercel domain once deployed
+        "https://newral-network.vercel.app"  # Replace with your Vercel domain once deployed
     ],
     allow_credentials=True,
     allow_methods=["*"],
