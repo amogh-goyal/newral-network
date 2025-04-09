@@ -21,6 +21,15 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator3-1 \
     xdg-utils \
+    # Additional dependencies for better cloud compatibility
+    libglib2.0-0 \
+    libnss3-dev \
+    libx11-xcb1 \
+    libgconf-2-4 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxslt1.1 \
+    libgtk-3-0 \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*  # Clean up
 
@@ -29,7 +38,8 @@ RUN pip install --upgrade pip setuptools wheel
 
 # Install Playwright and browser dependencies
 RUN pip install --no-cache-dir playwright
-RUN playwright install --with-deps
+RUN playwright install --with-deps chromium
+RUN playwright install-deps
 
 # Copy and install Python dependencies
 COPY requirements.txt ./

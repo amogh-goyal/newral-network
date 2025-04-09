@@ -15,8 +15,16 @@ router = APIRouter()
 # Try to import Google Generative AI
 try:
     import google.generativeai as genai
-    # Configure Gemini API
-    API_KEY = "AIzaSyDlNNKn-sCszfrlhANljr6hAOnFSU4AjLM"  # Replace with your actual API key
+    from dotenv import load_dotenv
+    import os
+    
+    # Load environment variables and configure Gemini API
+    load_dotenv()
+    API_KEY = os.getenv("OUR_KEY")
+    if not API_KEY:
+        logger.warning("OUR_KEY environment variable not found. Using hardcoded fallback key.")
+        API_KEY = "AIzaSyDlNNKn-sCszfrlhANljr6hAOnFSU4AjLM"
+    
     genai.configure(api_key=API_KEY)
     GEMINI_AVAILABLE = True
 except ImportError:

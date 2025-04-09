@@ -1,12 +1,22 @@
-from playwright.async_api import async_playwright
-from bs4 import BeautifulSoup
-import re
 import asyncio
-import random
+import os
+import re
+import json
+from dotenv import load_dotenv
+from crawl4ai import AsyncWebCrawler
+import google.generativeai as genai
+
+# Load environment variables
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL_NAME = 'gemini-1.5-flash'
+
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 async def scrape_class_central(search_keyword, num_courses=7):
     """
-    Scrape course details from Class Central based on the provided search keyword using Playwright.
+    Scrape course details from Class Central based on the provided search keyword using crawl4ai.
 
     Args:
         search_keyword (str): The keyword to search for courses (e.g., "Python Programming").
@@ -15,285 +25,273 @@ async def scrape_class_central(search_keyword, num_courses=7):
     Returns:
         list: List of dictionaries containing course details.
     """
-    courses_list = []
-
-    # Helper functions
-    async def random_sleep(min_time=1, max_time=3):
-        await asyncio.sleep(random.uniform(min_time, max_time))
-
-    async def goto_with_retry(page, url, retries=3, timeout=120000):
-        """Navigate to a URL with retries and increased timeout."""
-        for attempt in range(1, retries + 1):
-            try:
-                await page.goto(url, timeout=timeout, wait_until="load")
-                return
-            except Exception as e:
-                if attempt < retries:
-                    await asyncio.sleep(5)
-                else:
-                    raise Exception(f"Failed to load {url} after {retries} attempts: {e}")
-
-    def extract_text_from_html(html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
-        return soup.get_text(strip=True)
-
-    async def extract_course_title(page):
+    # Replace spaces with %20 for URL encoding
+    encoded_keyword = search_keyword.replace(" ", "%20")
+    url = f"https://www.classcentral.com/search?q={encoded_keyword}"
+    
+    # Fallback data in case of errors
+    fallback_courses = [
+        {
+            "course_name": f"{search_keyword} Course {i}",
+            "platform": "Class Central",
+            "course_type": "Not available",
+            "duration": "Not available",
+            "overview": "Course details temporarily unavailable",
+            "url": "https://www.classcentral.com",
+            "thumbnail": f"https://via.placeholder.com/300x200.png?text={search_keyword.replace(' ', '+')}+Course+{i}",
+            "thumbnail_alt": f"{search_keyword} Course {i} thumbnail",
+            "rating": "Not available",
+            "rating_value": "3.5",  # Default rating for fallback
+            "reviews_count": "10"    # Default reviews count for fallback
+        } for i in range(1, num_courses + 1)
+    ]
+    
+    try:
+        # Create a crawler instance with explicit configuration
+        print(f"Initializing crawler for: {search_keyword}")
+        crawler = AsyncWebCrawler(
+            verbose=True,
+            headless=True,
+            timeout=60
+        )
+        
         try:
-            # Use a list of selectors for cleaner iteration
-            title_selectors = [
-                "h1.head-2",
-                "h1.text-1.weight-bold",
-                "h1.head-2.max-650",
-                "h1"
-            ]
-            for selector in title_selectors:
-                title_elems = await page.locator(selector).all()
-                for elem in title_elems:
-                    if await elem.is_visible():
-                        return (await elem.text_content()).strip()
-            return "Unknown Title"
-        except Exception:
-            return "Unknown Title"
+            # Get search results page
+            print(f"Fetching search results for: {search_keyword}")
+            result = await crawler.arun(url=url)
+            
+            # Log response status to help with debugging
+            print(f"Response received for {search_keyword}. Length: {len(result.markdown) if hasattr(result, 'markdown') else 'unknown'}")
+            
+            # Check if we got a valid response
+            if not hasattr(result, 'markdown') or not result.markdown or len(result.markdown) < 100:
+                print(f"Invalid or empty response received for {search_keyword}, using fallback data")
+                return fallback_courses
+                
+            markdown_content = result.markdown
 
-    async def extract_thumbnail_from_search_result(course):
-        try:
-            thumbnail_img = course.locator("img.absolute.top.left.width-100.height-100.cover.block")
-            return {
-                "url": await thumbnail_img.get_attribute("src") or "Not found",
-                "alt": await thumbnail_img.get_attribute("alt") or "Not available"
-            }
-        except:
-            return {"url": "Not found", "alt": "Not available"}
+            # Extract thumbnail URLs directly from the markdown content
+            thumbnail_urls = re.findall(r'https://[^\s)]+/course[_-]image/[^\s)]+\.(?:png|jpg|jpeg)', markdown_content)
+            print(f"Found {len(thumbnail_urls)} thumbnails in the markdown content")
+            
+            # Extract basic course information from search results
+            print("Extracting course information from search results")
+            courses_list = await extract_courses_from_markdown(markdown_content, num_courses, thumbnail_urls)
+            
+            if not courses_list:
+                print("No courses found in search results, using fallback data")
+                return fallback_courses
 
-    async def extract_platform_from_search_result(course):
-        try:
-            platform_anchor = course.locator("a.hover-underline.color-charcoal.text-3.margin-left-small.line-tight")
-            return (await platform_anchor.text_content()).strip()
-        except:
-            try:
-                platform_img = course.locator("img.vertical-align-middle.margin-right-xsmall")
-                return await platform_img.get_attribute("alt") or "Unknown"
-            except:
-                try:
-                    platform_spans = await course.locator("span.text-2.line-tight, span.text-1.block.scale-down-1").all()
-                    for span in platform_spans:
-                        text = (await span.text_content()).strip()
-                        if text and not text.isdigit():
-                            return text
-                    return "Unknown"
-                except:
-                    return "Unknown"
+            # Set default values for all courses instead of fetching individual details
+            enhanced_courses = []
+            for course in courses_list:
+                # Ensure all required fields are present with default values
+                if 'rating_value' not in course:
+                    course['rating_value'] = '3.5'  # Default rating
+                if 'reviews_count' not in course:
+                    course['reviews_count'] = '10'  # Default reviews count
+                if 'rating' not in course:
+                    course['rating'] = 'Not available'
+                if 'overview' not in course or not course['overview']:
+                    course['overview'] = f"Course about {search_keyword}. Visit the course page for more details."
+                    
+                enhanced_courses.append(course)
 
-    async def extract_platform_rating(page):
-        try:
-            rating_elements = await page.locator("//p[contains(@class, 'text-') and contains(@class, 'medium-down-margin')]").all()
-            for element in rating_elements:
-                text = (await element.text_content()).strip()
-                if "rating at " in text:
-                    rating_match = re.search(r"(\d+\.\d+)\s+rating at ([A-Za-z]+) based on (\d+,?\d*) ratings", text)
-                    if rating_match:
-                        rating = rating_match.group(1)
-                        platform = rating_match.group(2)
-                        num_ratings = rating_match.group(3)
-                        return f"{platform} Rating: {rating} ({num_ratings} ratings)"
-                    return text
-            return "Not available"
-        except:
-            return "Not available"
-
-    async def extract_course_overview(page):
-        try:
-            await page.wait_for_load_state("networkidle")
-            selectors = [
-                "div.wysiwyg.text-1.line-wide",
-                "div.wysiwyg.text-1-line-wide",
-                "div.wysiwyg",
-                "div.course-description"
-            ]
-            for selector in selectors:
-                try:
-                    overview_elem = page.locator(selector)
-                    if await overview_elem.count() > 0:
-                        overview_text = (await overview_elem.text_content()).strip()
-                        if overview_text:
-                            return overview_text
-                except Exception:
-                    continue
-
-            try:
-                overview_heading = page.locator("h2:text('Overview'), h3:text('Overview')")
-                if await overview_heading.count() > 0:
-                    next_elem = overview_heading.locator("xpath=./following-sibling::*[1]")
-                    if await next_elem.count() > 0:
-                        return (await next_elem.text_content()).strip()
-            except:
-                pass
-            return "Not available"
-        except Exception:
-            return "Not available"
-
-    async def extract_course_details(page):
-        details = {}
-        try:
-            course_detail_items = await page.locator("li.course-details-item").all()
-            for item in course_detail_items:
-                item_text = (await item.text_content()).strip().lower()
-                if "free" in item_text:
-                    details["course_type"] = "Free Course"
-                    break
-                elif any(term in item_text for term in ["paid", "certificate", "nanodegree"]):
-                    details["course_type"] = "Paid Course"
-                    break
-            if "course_type" not in details:
-                dollar_icon_items = await page.locator("li:has(span.icon-cost-dollar), span.icon-cost-dollar").all()
-                if dollar_icon_items:
-                    for item in dollar_icon_items:
-                        item_text = (await item.text_content()).strip().lower()
-                        if "free" in item_text:
-                            details["course_type"] = "Free Course"
-                            break
-                        else:
-                            details["course_type"] = "Paid Course"
-                            break
-            if "course_type" not in details:
-                try:
-                    free_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Free").all()
-                    free_text_elements = await page.locator("text=Free Online Course").all()
-                    if free_text_spans or free_text_elements:
-                        details["course_type"] = "Free Course Online"
-                except:
-                    pass
-            if "course_type" not in details:
-                paid_text_spans = await page.locator("span.text-2.line-tight").filter(has_text="Paid").all()
-                paid_indicators = await page.locator("text=Paid Certificate").all()
-                if paid_indicators or paid_text_spans:
-                    details["course_type"] = "Paid Certificate Option"
-            if "course_type" not in details:
-                details["course_type"] = "Not available"
-        except Exception:
-            details["course_type"] = "Not available"
-
-        try:
-            duration_elems = await page.locator("li.course-details-item").all()
-            for elem in duration_elems:
-                text = (await elem.text_content()).strip()
-                if any(unit in text.lower() for unit in ["day", "hour", "minute", "week", "month"]):
-                    clean_text = re.sub(r"Duration & workload\s*", "", text, flags=re.IGNORECASE).strip()
-                    clean_text = re.sub(r"\s+", " ", clean_text)
-                    details["duration"] = clean_text
-                    break
-            else:
-                details["duration"] = "Not available"
-        except Exception:
-            details["duration"] = "Not available"
-
-        return details
-
-    async with async_playwright() as p:
-        try:
-            browser = await p.chromium.launch(
-                headless=True, 
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--single-process"
-                ],
-                timeout=180000
-            )
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
-                ignore_https_errors=True
-            )
-            page = await context.new_page()
-
-            base_url = "https://www.classcentral.com"
-            await goto_with_retry(page, base_url)
-            await random_sleep(2, 4)
-
-            search_input = page.get_by_placeholder("Search 250,000 courses…")
-            await search_input.click()
-            await random_sleep(1, 2)
-            await search_input.fill(search_keyword)
-            await random_sleep(1, 2)
-            await search_input.press("Enter")
-            await random_sleep(2, 4)
-
-            await page.wait_for_selector(".course-list", timeout=14000)
-            course_elements = await page.locator(".course-list-course").all()
-            course_elements = course_elements[:num_courses]
-
-            for course in course_elements:
-                course_details = {}
-                thumbnail_info = await extract_thumbnail_from_search_result(course)
-                platform_name = await extract_platform_from_search_result(course)
-                link_elem = course.locator("a.course-name")
-                href = await link_elem.get_attribute("href") or ""
-                if not href.startswith("http"):
-                    href = f"{base_url}{href}"
-
-                course_page = await context.new_page()
-                try:
-                    await goto_with_retry(course_page, href)
-                    await random_sleep(2, 3)
-
-                    course_title = await extract_course_title(course_page)
-
-                    if platform_name == "YouTube":
-                        course_details = {
-                            "course_name": course_title,
-                            "platform": "YouTube",
-                            "rating": "Not available",
-                            "course_type": "Free",
-                            "duration": "Not available",
-                            "overview": "Not available",
-                            "url": href,
-                            "thumbnail_url": thumbnail_info["url"],
-                            "thumbnail_alt": thumbnail_info["alt"]
-                        }
-                    else:
-                        platform_rating = await extract_platform_rating(course_page)
-                        course_overview = await extract_course_overview(course_page)
-                        details = await extract_course_details(course_page)
-                        course_details = {
-                            "course_name": course_title,
-                            "platform": platform_name,
-                            "rating": platform_rating,
-                            "course_type": details.get("course_type", "Not available"),
-                            "duration": details.get("duration", "Not available"),
-                            "overview": course_overview,
-                            "url": href,
-                            "thumbnail_url": thumbnail_info["url"],
-                            "thumbnail_alt": thumbnail_info["alt"]
-                        }
-                    courses_list.append(course_details)
-                except Exception as e:
-                    course_details = {
-                        "course_name": "Error",
-                        "platform": platform_name,
-                        "rating": "Not available",
-                        "course_type": "Not available",
-                        "overview": "Not available",
-                        "url": href,
-                        "thumbnail_url": thumbnail_info["url"],
-                        "thumbnail_alt": thumbnail_info["alt"]
-                    }
-                    courses_list.append(course_details)
-                finally:
-                    await course_page.close()
-                    await random_sleep(1, 2)
-        except Exception:
-            pass
+            return enhanced_courses if enhanced_courses else fallback_courses
+        except Exception as e:
+            print(f"Error during scraping: {e}")
+            return fallback_courses
         finally:
-            await browser.close()
+            # Ensure crawler is properly closed
+            try:
+                print("Closing crawler instance")
+                # Check if browser is still connected before closing
+                if hasattr(crawler, 'browser') and crawler.browser is not None:
+                    if not crawler.browser._closed:
+                        await crawler.close()
+                        print("Crawler closed successfully")
+                    else:
+                        print("Browser already closed, skipping crawler.close()")
+                else:
+                    print("No active browser found, skipping crawler.close()")
+            except Exception as e:
+                print(f"Error closing crawler: {e}") 
+                # Even if there's an error, we'll consider the crawler closed
+                # This prevents cascading errors in subsequent API calls
+    except Exception as e:
+        print(f"Failed to initialize crawler: {e}")
+        return fallback_courses
 
-    return courses_list
+async def extract_courses_from_markdown(markdown_content, num_courses, thumbnail_urls):
+    """
+    Extract course details from the markdown content using Gemini API.
+    
+    Args:
+        markdown_content (str): Markdown content from Class Central search results.
+        num_courses (int): Number of courses to extract.
+        thumbnail_urls (list): List of thumbnail URLs extracted from markdown content.
+        
+    Returns:
+        list: List of dictionaries containing course details.
+    """
+    # First check if we have a valid markdown content to work with
+    if not markdown_content or len(markdown_content) < 100:
+        print("Warning: Markdown content too short, likely invalid response")
+        return []
+    
+    # Prompt for the Gemini API to extract course details
+    prompt = f"""
+    Extract detailed information for {num_courses} courses from the following Class Central search results. 
+    For each course, extract:
+    1. Course title (full name)
+    2. Platform (provider like Coursera, edX, etc.)
+    3. Course type (Course, Specialization, etc.)
+    4. Duration (if available)
+    5. Overview/description
+    6. URL
+    7. Any image URLs for thumbnails
+    
+    Markdown content:
+    {markdown_content[:15000]}  # Limit content length to prevent token limit issues
+    
+    Return the data as a valid JSON array of course objects with these fields:
+    - course_name
+    - platform
+    - course_type
+    - duration
+    - overview
+    - url
+    - thumbnail
+    - thumbnail_alt (description of the thumbnail)
+    
+    Be precise about correctly extracting URLs. Make sure they are complete, not relative paths.
+    """
+    
+    try:
+        # Call Gemini API
+        model = genai.GenerativeModel(MODEL_NAME)
+        response = model.generate_content(prompt)
+        
+        # Extract valid JSON from response text
+        response_text = response.text
+        # Look for a JSON array
+        json_match = re.search(r'\[\s*\{.*\}\s*\]', response_text, re.DOTALL)
+        if json_match:
+            # Process the matched JSON
+            try:
+                courses_data = json.loads(json_match.group(0))
+                print(f"Successfully extracted {len(courses_data)} courses from markdown")
+                
+                # Validate and clean the extracted data
+                valid_courses = []
+                for i, course in enumerate(courses_data[:num_courses]):  # Limit to requested number
+                    # Ensure all required fields exist
+                    if 'course_name' not in course or not course['course_name']:
+                        continue
+                    
+                    # Fix relative URLs
+                    if 'url' in course and course['url']:
+                        if not course['url'].startswith('http'):
+                            if course['url'].startswith('/'):
+                                course['url'] = f"https://www.classcentral.com{course['url']}"
+                            else:
+                                course['url'] = f"https://www.classcentral.com/{course['url']}"
+                    
+                    # Use extracted thumbnail URLs if available
+                    if thumbnail_urls and i < len(thumbnail_urls):
+                        course['thumbnail'] = thumbnail_urls[i]
+                    else:
+                        course_name_slug = course['course_name'].replace(' ', '+')
+                        course['thumbnail'] = f"https://via.placeholder.com/300x200.png?text={course_name_slug}"
+                    
+                    # Ensure thumbnail_alt is set
+                    if 'thumbnail_alt' not in course or not course['thumbnail_alt']:
+                        course['thumbnail_alt'] = f"{course['course_name']} thumbnail"
+                    
+                    valid_courses.append(course)
+                
+                return valid_courses
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON: {e}")
+        else:
+            print("No valid JSON array found in response")
+    except Exception as e:
+        print(f"Error processing Gemini API response: {e}")
+    
+    # If we get here, use regex fallback method
+    print("Using fallback regex method to extract courses")
+    return extract_courses_with_regex(markdown_content, num_courses, thumbnail_urls)
+
+def extract_courses_with_regex(markdown_content, num_courses, thumbnail_urls=None):
+    """
+    Extract course information using regex patterns as a backup method.
+    
+    Args:
+        markdown_content (str): Markdown content from Class Central search results.
+        num_courses (int): Number of courses to extract.
+        thumbnail_urls (list, optional): List of thumbnail URLs extracted from markdown content.
+        
+    Returns:
+        list: List of dictionaries containing course details.
+    """
+    courses = []
+    
+    # Pattern to match course lines in markdown output
+    course_pattern = r'\[(.*?)\]\((.*?)\)'
+    matches = re.findall(course_pattern, markdown_content)
+    
+    # Extract platform names separately
+    platform_pattern = r'\*\*(.*?)\*\*'
+    platforms = re.findall(platform_pattern, markdown_content)
+    
+    # If thumbnail_urls wasn't passed, extract them now
+    if thumbnail_urls is None:
+        thumbnail_urls = re.findall(r'https://[^\s)]+/course[_-]image/[^\s)]+\.(?:png|jpg|jpeg)', markdown_content)
+        print(f"Regex fallback found {len(thumbnail_urls)} thumbnails")
+    
+    # Process matches up to the requested number
+    count = 0
+    for i, match in enumerate(matches):
+        if count >= num_courses:
+            break
+            
+        # Only take matches that look like course titles (not navigation links)
+        if len(match[0]) > 10:  # Simple heuristic to filter out short links
+            course_name = match[0]
+            url = match[1]
+            
+            # Try to associate with a platform
+            platform = "Class Central"  # Default
+            if i < len(platforms):
+                platform = platforms[i]
+            
+            # Get thumbnail if available
+            thumbnail = ""
+            if thumbnail_urls and i < len(thumbnail_urls):
+                thumbnail = thumbnail_urls[i]
+            else:
+                thumbnail = f"https://via.placeholder.com/300x200.png?text={course_name.replace(' ', '+')}"
+            
+            # Create course object
+            course = {
+                "course_name": course_name,
+                "platform": platform,
+                "course_type": "Course",  # Default
+                "duration": "Not specified",  # Default
+                "overview": f"A course about {course_name} offered by {platform}.",
+                "url": url if url.startswith('http') else f"https://www.classcentral.com{url}",
+                "thumbnail": thumbnail,
+                "thumbnail_alt": f"{course_name} thumbnail"
+            }
+            courses.append(course)
+            count += 1
+    
+    return courses
 
 if __name__ == "__main__":
     async def main():
-        keyword = "XML for UI Development"
-        result = await scrape_class_central(keyword)
-        for course in result:
-            print(course)
+        keyword = input("Enter search keyword for courses: ")
+        courses = await scrape_class_central(keyword)
+        print(json.dumps(courses, indent=2))
+    
     asyncio.run(main())

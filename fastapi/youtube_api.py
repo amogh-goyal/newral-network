@@ -113,6 +113,7 @@ def get_video_statistics(video_ids):
 def search_youtube(query, language='en', region_code=None, max_results=5):
     """
     Search YouTube for playlists and long videos (excluding Shorts) based on a query.
+    This is a synchronous function that should NOT be awaited.
 
     Args:
         query (str): The search query.
@@ -154,7 +155,7 @@ def search_youtube(query, language='en', region_code=None, max_results=5):
                     "platform": "YouTube",
                     "description": description,
                     "url": f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-                    "thumbnail_url": thumbnail,
+                    "thumbnail": thumbnail,
                     "thumbnail_alt": title,
                     "views": "0",  # Will be updated later
                     "rating": "Not available",
@@ -167,7 +168,7 @@ def search_youtube(query, language='en', region_code=None, max_results=5):
                     "platform": "YouTube",
                     "description": description,
                     "url": f"https://www.youtube.com/playlist?list={item['id']['playlistId']}",
-                    "thumbnail_url": thumbnail,
+                    "thumbnail": thumbnail,
                     "thumbnail_alt": title,
                     "views": "0",  # Playlists don't have view counts directly
                     "rating": "Not available",
@@ -207,3 +208,5 @@ def search_youtube(query, language='en', region_code=None, max_results=5):
     except Exception as e:
         print(f"Error searching YouTube: {e}")
         return []
+
+# Nothing further needed - using the simplified implementation

@@ -64,7 +64,7 @@ Example response for 'UI/UX Designer':
 """
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         chat = model.start_chat(history=[])
         response = chat.send_message(prompt)
         response_text = response.text
