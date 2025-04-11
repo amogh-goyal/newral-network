@@ -106,6 +106,15 @@ async def run_generation(job_id: str, request: RoadmapRequest):
                         
                         safe_roadmap["options"].append(safe_option)
             
+            # Debug - check for YouTube content before returning result
+            youtube_count = 0
+            for option in safe_roadmap.get("options", []):
+                for topic in option.get("topics", []):
+                    if "platform" in topic and topic["platform"] == "YouTube":
+                        youtube_count += 1
+            
+            print(f"Final roadmap contains {youtube_count} YouTube resources")
+            
             # Store the safely constructed roadmap
             jobs[job_id] = {"status": "completed", "result": safe_roadmap}
         else:

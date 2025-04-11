@@ -300,13 +300,28 @@ async def generate_roadmap(degree, country=None, language='en', include_paid=Tru
             if topic_options and option_index < len(topic_options):
                 course = topic_options[option_index]
                 # Create a new dictionary instead of using references to avoid unhashable type issues
+                # Handle potential conversion errors for numeric values
+                try:
+                    rating_value = course.get("rating_value", "4.0")
+                    # Replace commas and convert to float
+                    rating = float(rating_value.replace(",", "")) if isinstance(rating_value, str) else float(rating_value)
+                except (ValueError, TypeError):
+                    rating = 4.0  # Default if conversion fails
+                
+                try:
+                    reviews_count = course.get("reviews_count", "0")
+                    # Replace commas and convert to int
+                    reviews = int(reviews_count.replace(",", "")) if isinstance(reviews_count, str) else int(reviews_count)
+                except (ValueError, TypeError):
+                    reviews = 0  # Default if conversion fails
+                
                 step_data = {
-                    "step_number": step,  # Integer
+                    "step_number": step,  # Integer not string
                     "topic": str(topic_data["name"]),  # String
                     "thumbnail": str(course.get("thumbnail", "https://via.placeholder.com/300x200.png?text=Resource")),  # String
                     "url": str(course.get("url", "#")),  # String
-                    "rating": str(course.get("rating_value", "4.0")),  # String
-                    "reviews_count": str(course.get("reviews_count", "0")),  # String - should be a string!
+                    "rating": rating,  # Float
+                    "reviews_count": reviews,  # Integer
                     "completed": False  # Boolean
                 }
             else:
@@ -316,9 +331,9 @@ async def generate_roadmap(degree, country=None, language='en', include_paid=Tru
                     "topic": str(topic_data["name"]),  # String
                     "thumbnail": "https://via.placeholder.com/300x200.png?text=Resource",  # String
                     "url": f"https://www.youtube.com/results?search_query={topic_data['name'].replace(' ', '+')}",  # String
-                    "rating": "4.0",  # String
-                    "reviews_count": "0",  # String
-                    "completed": False  # Boolean
+                    "rating": 4.0,  # Float (explicitly a number, not string)
+                    "reviews_count": 0,  # Integer (explicitly a number, not string)
+                    "completed": False  # Boolean (explicitly a boolean, not string)
                 }
             option_topics.append(step_data)
         
